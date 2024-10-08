@@ -83,3 +83,4 @@ from .A_BIZARRE_CONCOTION import *
 from .LOSPEC500 import *
 from .MIDNIGHT_ABLAZ import *
 from .P_1BIT_MONITOR_GLOW import *
+from .RUBIKS_CUBE_COLORS import *
