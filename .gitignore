@@ -26,4 +26,5 @@ pip-delete-this-directory.txt
 .vscode/
 
 imgs/
+results/
 nptest.py

@@ -16,6 +16,7 @@ SHADOWING_OFFSET = 20
 ZONE = 0 # divide pixels by zone, the zone is a square of ZONE x ZONE pixels
 MARKS_OFFSET = 0 # mark zones in the image, doesn't need --zone-pixels option
 MARK_COL0R = [0, 0, 0]
+OUTPUT_PATH = None
 
 DEFAULT_PALLETTE = pallettes.LOSPEC500
 USED_PALLETTE = DEFAULT_PALLETTE
@@ -330,14 +331,20 @@ if __name__ == '__main__':
     ZONE = int(args.zone_pixels[0]) if args.zone_pixels else 0
     MARKS_OFFSET = int(args.marks_offset[0]) if args.marks_offset else 0
 
+    OUTPUT_PATH = args.output
+
     USED_PALLETTE = get_palette(args.pallette)
     # BORDERS = args.borders
 
     image = cv2.imread(args.image)
+    img_name = os.path.basename(args.image)
     new_image = img2pixelart(image)
 
     if ZONE > 0:
         new_image = zoneImage(new_image, ZONE)
 
-    cv2.imshow('Pixel Art', new_image)
-    cv2.waitKey(0)
+    if OUTPUT_PATH and os.path.exists(OUTPUT_PATH):
+        cv2.imwrite(os.path.join(OUTPUT_PATH, 'new_' + img_name), new_image)
+    else:
+        cv2.imshow('Pixel Art', new_image)
+        cv2.waitKey(0)
