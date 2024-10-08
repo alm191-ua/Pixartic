@@ -13,6 +13,9 @@ KEEP_PROPORTIONS = True
 BORDERS = False
 SHADOWING = False
 SHADOWING_OFFSET = 20
+ZONE = 0 # divide pixels by zone, the zone is a square of ZONE x ZONE pixels
+MARKS_OFFSET = 0 # mark zones in the image, doesn't need --zone-pixels option
+MARK_COL0R = [0, 0, 0]
 
 DEFAULT_PALLETTE = pallettes.LOSPEC500
 USED_PALLETTE = DEFAULT_PALLETTE
@@ -242,8 +245,63 @@ def img2pixelart(image) -> np.ndarray:
     # ------
     new_image = new_image.astype(np.uint8)
        
+    if MARKS_OFFSET > 0:
+        new_image = markZones(new_image, MARKS_OFFSET)
+
     # upscale the image
     new_image = cv2.resize(new_image, FINAL_RESOLUTION, interpolation=cv2.INTER_NEAREST)
+
+    return new_image
+
+def zoneImage(image, zone):
+    # get the shape of the image
+    shape = image.shape
+    # get the zone size
+    zone_size = shape[0] // zone
+    # create a new image with the same shape
+    new_image = np.zeros_like(image)
+    # iterate over the image
+    for i in np.arange(0, shape[0], zone_size):
+        for j in np.arange(0, shape[1], zone_size):
+            # get the window
+            window = image[i:i+zone_size, j:j+zone_size]
+            # get the color of the window
+            color = np.mean(window, axis=(0, 1))
+            # fill the window with the color
+            new_image[i:i+zone_size, j:j+zone_size] = color
+
+    return new_image
+
+def markZones(image, zone_size):
+    # get the shape of the image
+    shape = image.shape
+    height_marks = shape[0] // zone_size +1
+    width_marks = shape[1] // zone_size +1
+    # create a new image with the height and width increased by the zone size
+    new_image = np.zeros((shape[0] + height_marks, shape[1] + width_marks, 3), dtype=np.uint8)
+    # fill the new image with the original image interpersed with the marks
+    extra_rows = 0
+    i = 0
+    while i < shape[0]:
+        extra_cols = 0
+        j = 0
+        marked_row = False
+        while j < shape[1]:
+            new_image[i+extra_rows, j+extra_cols] = image[i, j]
+            if i % zone_size == 0:
+                new_image[i+extra_rows, j+extra_cols] = MARK_COL0R
+                if not marked_row:
+                    marked_row = True
+                    extra_rows += 1
+                new_image[i+extra_rows, j+extra_cols] = image[i, j]
+            
+            if j % zone_size == 0:
+                new_image[i+extra_rows, j+extra_cols] = MARK_COL0R
+                extra_cols += 1
+                new_image[i+extra_rows, j+extra_cols] = image[i, j]
+                
+            j += 1
+        i += 1
 
     return new_image
 
@@ -252,12 +310,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('image', help='path to the image')
     parser.add_argument('-p', '--proportions', action='store_true', help='keep proportions')
-    parser.add_argument('-r', '--resolution', nargs=2, type=int, help='resolution of the image')
+    parser.add_argument('-r', '--resolution', nargs=2, type=int, help='resolution of the final image (less priority than zone)', required=False)
     # pallette argument with different options, show the option in the help
     choices = [p.rstrip('.py') for p in os.listdir('pallettes') if p != '__init__.py' and p.endswith('.py') and p != 'pallettes.py']
     parser.add_argument('-P', '--pallette', choices=choices, default='LOSPEC500', help='color pallette to use')
     # parser.add_argument('-b', '--borders', action='store_true', help='add borders to the elements in the image')
     parser.add_argument('-s', '--shadowing', action='store_true', help='use shadowing')
+    parser.add_argument('-z', '--zone-pixels', type=int, help='divide pixels by zone, the final image is a square of ZONE x ZONE pixels (same as changing resolution but doing the mean between the pixels in each zone)', default=0, required=False, nargs=1)
+    parser.add_argument('-m', '--marks_offset', type=int, help='mark zones in the image, doesn\'t need --zone-pixels option', default=0, required=False, nargs=1)
+    parser.add_argument('-o', '--output', help='output path, saves the image in the given path instead of showing it', required=False)
 
     args = parser.parse_args()
 
@@ -266,11 +327,17 @@ if __name__ == '__main__':
         RESOLUTION = tuple(args.resolution)
     SHADOWING = args.shadowing
 
+    ZONE = int(args.zone_pixels[0]) if args.zone_pixels else 0
+    MARKS_OFFSET = int(args.marks_offset[0]) if args.marks_offset else 0
+
     USED_PALLETTE = get_palette(args.pallette)
     # BORDERS = args.borders
 
     image = cv2.imread(args.image)
     new_image = img2pixelart(image)
+
+    if ZONE > 0:
+        new_image = zoneImage(new_image, ZONE)
 
     cv2.imshow('Pixel Art', new_image)
     cv2.waitKey(0)
